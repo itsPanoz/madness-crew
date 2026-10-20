@@ -1,0 +1,70 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Madness Crew</title>
+<meta name="description" content="Midtown Madness speedrun standings, every race's PBs and the latest verified runs, live from speedrun.com.">
+<link rel="icon" href="img/trophy-1.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<header class="site-head">
+  <div class="wrap head-row">
+    <a class="brand" href="#top"><img src="img/trophy-1.png" alt=""><span><b id="site-name">Madness Crew</b><small>Midtown Madness speedruns · Chicago · 32 races</small></span></a>
+    <nav aria-label="Sections"><a href="#standings">Standings</a><a href="#races">Races</a><a href="#player">Players</a><a href="#fullgame">Full game</a><a href="#latest">Latest</a></nav>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+  <p class="status" id="status" role="status">Loading the boards from speedrun.com…</p>
+
+  <section id="standings">
+    <div class="sec-head">
+      <h2>Standings</h2>
+      <p class="sub" id="points-rule"></p>
+      <div class="seg" role="group" aria-label="Who to show">
+        <button type="button" id="show-all" aria-pressed="true">Everyone</button>
+        <button type="button" id="show-crew" aria-pressed="false">Crew only</button>
+      </div>
+    </div>
+    <div class="tw"><table id="standings-table"><tbody><tr><td class="loading">Loading…</td></tr></tbody></table></div>
+  </section>
+
+  <section id="races">
+    <div class="sec-head">
+      <h2>Every race</h2>
+      <p class="sub">Each runner's PB and place. The top 8 for the category plus the crew. Click a race for its full board.</p>
+    </div>
+    <div class="tabs" role="tablist" id="cat-tabs"></div>
+    <div class="tw"><table class="grid" id="grid"></table></div>
+  </section>
+
+  <div class="twocol">
+    <section id="player">
+      <div class="sec-head"><h2>Player</h2></div>
+      <div class="card" id="card"></div>
+    </section>
+    <section id="latest">
+      <div class="sec-head"><h2>Latest verified runs</h2></div>
+      <div class="feed" id="feed"></div>
+    </section>
+  </div>
+
+  <section id="fullgame">
+    <div class="sec-head"><h2>Full game</h2><p class="sub">Top 5 of each full-game board. These don't count toward points.</p></div>
+    <div class="fg" id="fg"></div>
+  </section>
+
+  <footer class="foot">
+    Times and places come live from <a href="https://www.speedrun.com/midtown1" rel="noopener">speedrun.com</a> and refresh every 10 minutes. A run shows once a moderator has verified it.
+    The crew list and points are in <code>crew.js</code>.
+  </footer>
+</main>
+
+<script src="crew.js"></script>
+<script src="app.js"></script>
+</body>
+</html>
