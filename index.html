@@ -8,7 +8,12 @@
 <link rel="icon" href="img/trophy-1.png">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
-<link rel="stylesheet" href="style.css">
+<script>
+  // load style.css, crew.js and app.js fresh at least every 10 minutes, so a change on GitHub
+  // reaches everyone without a hard refresh (browsers otherwise keep their old copies)
+  window.FRESH = Math.floor(Date.now() / 600000);
+  document.write('<link rel="stylesheet" href="style.css?t=' + window.FRESH + '">');
+</script>
 </head>
 <body>
 <header class="site-head">
@@ -64,7 +69,9 @@
   </footer>
 </main>
 
-<script src="crew.js"></script>
-<script src="app.js"></script>
+<script>
+  document.write('<script src="crew.js?t=' + window.FRESH + '"><\/script>');
+  document.write('<script src="app.js?t=' + window.FRESH + '"><\/script>');
+</script>
 </body>
 </html>
