@@ -18,7 +18,7 @@ window.CREW = {
     "Swaggles",
     "SimonMV", 
     "TacoTE", 
-    "EndlessSummer,
+    "EndlessSummer",
   ],
   // points for 1st, 2nd, 3rd ... on every board; places after the last get 0
   points: [15, 12, 10, 8, 7, 6, 5, 4, 3, 2, 1],
