@@ -169,7 +169,8 @@ function av(name) {
 const cup = p => p >= 1 && p <= 4 ? `<img class="cup" src="img/trophy-${p}.png" alt="${ord(p)}">` : "";
 const placeMark = p => cup(p) || `<span class="place">${ord(p)}</span>`;
 const nameBtn = name => `<button type="button" data-player="${esc(name)}">${esc(name)}</button>`;
-const crewTag = name => isCrew(name) ? ` <span class="tag">crew</span>` : "";
+// Madness Crew members get the crew logo after their name
+const crewTag = name => isCrew(name) ? ` <img class="crewbadge" src="img/logo.png" alt="Madness Crew" title="Madness Crew">` : "";
 
 // ------------------------------------------------------------------ standings
 
@@ -199,7 +200,7 @@ function renderGrid() {
   const ranked = Object.keys(pts).sort((a, b) => pts[b] - pts[a]);
   const cols = ranked.slice(0, 8);
   for (const n of ranked) if (isCrew(n) && !cols.includes(n)) cols.push(n);
-  let g = `<thead><tr><th>Race</th><th>Type</th>${cols.map(n => `<th class="pl${isCrew(n) ? " crewcol" : ""}"><span class="who">${esc(n)}${av(n)}</span></th>`).join("")}</tr></thead><tbody>`;
+  let g = `<thead><tr><th>Race</th><th>Type</th>${cols.map(n => `<th class="pl${isCrew(n) ? " crewcol" : ""}"><span class="who">${esc(n)}${crewTag(n)}${av(n)}</span></th>`).join("")}</tr></thead><tbody>`;
   for (const b of bs) {
     g += `<tr data-level="${b.level.id}"><td class="race"><button type="button" aria-expanded="false">${esc(b.level.name)}</button></td><td class="mode">${b.level.mode}</td>`;
     for (const n of cols) {
@@ -221,7 +222,7 @@ function toggleBoard(tr) {
   }
   const b = boards.find(x => x.cat === curCat && x.level.id === tr.dataset.level);
   const lines = b.runs.map(r => `<div class="board-line${isCrew(r.name) ? " crew" : ""}"><span>${placeMark(r.place)}</span>` +
-    `<span class="who">${av(r.name.split(" & ")[0])}${nameBtn(r.name)}</span><span class="when">${esc(r.date)}</span><b>${T(r.time)}</b></div>`).join("");
+    `<span class="who">${av(r.name.split(" & ")[0])}${nameBtn(r.name)}${crewTag(r.name)}</span><span class="when">${esc(r.date)}</span><b>${T(r.time)}</b></div>`).join("");
   const row = document.createElement("tr");
   row.className = "board-row";
   row.innerHTML = `<td colspan="${$("grid").dataset.cols}"><div class="board">${lines || `<span class="none">No runs yet.</span>`}</div></td>`;
@@ -269,14 +270,14 @@ function renderLatest(raw) {
     const lvl = LEVEL[run.level];
     const where = (lvl ? lvl.name + " · " : "") + (catNames[run.category] || "");
     const mark = hit ? placeMark(hit.r.place) : `<span class="place">older</span>`;
-    return `<div class="feed-row${isCrew(name) ? " crew" : ""}">${av(name.split(" & ")[0])}<div class="what"><b>${esc(name)}</b> <small>${esc(where)} · ${esc(run.date || "")}</small></div>` +
+    return `<div class="feed-row${isCrew(name) ? " crew" : ""}">${av(name.split(" & ")[0])}<div class="what"><b>${esc(name)}</b>${crewTag(name)} <small>${esc(where)} · ${esc(run.date || "")}</small></div>` +
       `<div class="tm">${mark}${T(run.times.primary_t)}</div></div>`;
   });
   $("feed").innerHTML = rows.join("") || `<div class="feed-row"><span class="none">No runs.</span></div>`;
 }
 function renderFull() {
   $("fg").innerHTML = fullBoards.map(b => `<div class="fg-card"><h3>${esc(b.catName)} <span class="place">points ×${b.mult}</span></h3>` +
-    (b.runs.slice(0, 5).map(r => `<div class="fg-line${isCrew(r.name) ? " crew" : ""}"><span>${placeMark(r.place)}</span><span class="who">${av(r.name.split(" & ")[0])}${esc(r.name)}</span><b class="tm">${T(r.time)}</b></div>`).join("") ||
+    (b.runs.slice(0, 5).map(r => `<div class="fg-line${isCrew(r.name) ? " crew" : ""}"><span>${placeMark(r.place)}</span><span class="who">${av(r.name.split(" & ")[0])}${esc(r.name)}${crewTag(r.name)}</span><b class="tm">${T(r.time)}</b></div>`).join("") ||
       `<span class="none">No runs yet.</span>`) + `</div>`).join("");
 }
 
@@ -296,6 +297,10 @@ async function start() {
   table = Object.values(people).filter(s => s.boards).sort((a, b) => b.pts - a.pts || b.cups[1] - a.cups[1] || a.name.localeCompare(b.name));
   $("status").textContent = got.note || `Live from speedrun.com · ${boards.length} boards, ${table.length} runners · updated ${new Date(got.raw.at).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })}`;
   if (got.note) $("status").classList.add("err");
+  if (!window.CREW) { // crew.js didn't load: almost always a missing quote or comma after an edit
+    $("status").textContent += " · crew.js has a typo (check every name has \"quotes\" and a comma), so no crew is shown";
+    $("status").classList.add("err");
+  }
 
   renderStandings();
   $("show-all").addEventListener("click", () => { crewOnly = false; renderStandings(); });

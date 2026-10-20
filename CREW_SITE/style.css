@@ -17,7 +17,8 @@ code { font-size: 13px; background: var(--panel2); padding: 1px 5px; border-radi
 .site-head { position: sticky; top: 0; z-index: 5; background: linear-gradient(180deg, #1b3a24, #122019); border-bottom: 2px solid var(--yellow); }
 .head-row { display: flex; gap: 10px 20px; align-items: center; justify-content: space-between; flex-wrap: wrap; padding-block: 10px; }
 .brand { display: flex; gap: 12px; align-items: center; text-decoration: none; color: var(--fg); }
-.brand img { width: 44px; height: auto; image-rendering: pixelated; }
+.brand img { height: 56px; width: auto; }
+.crewbadge { height: 20px; width: auto; vertical-align: -5px; flex: none; }
 .brand b { display: block; font: 800 clamp(24px, 4vw, 34px)/1 var(--display); letter-spacing: .02em; color: var(--yellow); text-transform: uppercase; }
 .brand small { color: var(--dim); font-size: 13px; }
 nav { display: flex; gap: 4px; flex-wrap: wrap; }
@@ -52,7 +53,6 @@ tr.crew td.who { color: var(--yellow); }
 .who button { all: unset; cursor: pointer; }
 .who button:hover { text-decoration: underline; }
 .who button:focus-visible { outline: 2px solid var(--green); }
-.tag { font: 700 11px var(--display); letter-spacing: .1em; text-transform: uppercase; color: #111; background: var(--yellow); border-radius: 3px; padding: 0 5px; }
 .av { width: 26px; height: 26px; border-radius: 6px; position: relative; flex: none; display: grid; place-items: center; font: 600 15px var(--display); color: #fff; }
 .av img.pic { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; display: block; object-fit: cover; }
 .av img.flag { position: absolute; right: -4px; bottom: -3px; width: 14px; height: auto; border: 1px solid #000; }
