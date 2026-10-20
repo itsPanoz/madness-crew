@@ -38,6 +38,8 @@ const $ = id => document.getElementById(id);
 const esc = s => String(s).replace(/[&<>"']/g, c => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[c]));
 const ord = n => n + (n % 100 >= 11 && n % 100 <= 13 ? "th" : ["th", "st", "nd", "rd"][n % 10] || "th");
 const pointsFor = place => POINTS[place - 1] || 0;
+const FULL_X = CREW.fullGame || {};
+const fullMult = cat => Number(FULL_X[cat]) || Number(CREW.fullGameOther) || 1;
 function T(t) { // seconds -> 1:23.45 / 19.63
   const cs = Math.round(t * 100), m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60, h = cs % 100;
   return m ? `${m}:${String(s).padStart(2, "0")}.${String(h).padStart(2, "0")}` : `${s}.${String(h).padStart(2, "0")}`;
@@ -134,13 +136,26 @@ function build(raw) {
       if (r.place <= 4) p.cups[r.place]++;
     }
   }
-  for (const b of raw.full) {
+  // full-game boards: points times the board's multiplier (crew.js); shaped like a race board so
+  // player cards and the latest feed treat them the same
+  raw.full.forEach((b, i) => {
     const pm = playerMap(b);
-    fullBoards.push({
-      cat: b.category, catName: catNames[b.category] || b.category,
-      runs: b.runs.map(r => ({ place: r.place, name: runnerName(r.run, pm), time: r.run.times.primary_t, date: r.run.date || "" })),
-    });
-  }
+    const catName = catNames[b.category] || b.category;
+    const board = {
+      cat: b.category, catName, mult: fullMult(b.category), full: true,
+      level: { id: b.category, name: catName, mode: "Full game", order: 100 + i },
+      runs: b.runs.map(r => ({ place: r.place, name: runnerName(r.run, pm), time: r.run.times.primary_t, date: r.run.date || "", id: r.run.id })),
+    };
+    fullBoards.push(board);
+    for (const r of board.runs) {
+      if (r.name.includes(" & ")) continue;
+      const p = person(r.name);
+      p.runs.push({ ...r, board });
+      p.boards++;
+      p.pts += pointsFor(r.place) * board.mult;
+      if (r.place <= 4) p.cups[r.place]++;
+    }
+  });
   boards.sort((a, b) => a.level.order - b.level.order);
 }
 
@@ -244,7 +259,7 @@ function showPlayer(name, scroll) {
 
 function renderLatest(raw) {
   const byRunId = {};
-  for (const b of boards) for (const r of b.runs) byRunId[r.id] = { r, b };
+  for (const b of boards.concat(fullBoards)) for (const r of b.runs) byRunId[r.id] = { r, b };
   const rows = raw.latest.map(run => {
     // here the players come embedded in the run itself: users (with names) and guests
     const list = (run.players && run.players.data) || [];
@@ -260,7 +275,7 @@ function renderLatest(raw) {
   $("feed").innerHTML = rows.join("") || `<div class="feed-row"><span class="none">No runs.</span></div>`;
 }
 function renderFull() {
-  $("fg").innerHTML = fullBoards.map(b => `<div class="fg-card"><h3>${esc(b.catName)}</h3>` +
+  $("fg").innerHTML = fullBoards.map(b => `<div class="fg-card"><h3>${esc(b.catName)} <span class="place">points ×${b.mult}</span></h3>` +
     (b.runs.slice(0, 5).map(r => `<div class="fg-line${isCrew(r.name) ? " crew" : ""}"><span>${placeMark(r.place)}</span><span class="who">${av(r.name.split(" & ")[0])}${esc(r.name)}</span><b class="tm">${T(r.time)}</b></div>`).join("") ||
       `<span class="none">No runs yet.</span>`) + `</div>`).join("");
 }
@@ -269,7 +284,7 @@ function renderFull() {
 
 async function start() {
   if (CREW.name) { $("site-name").textContent = CREW.name; document.title = CREW.name; }
-  $("points-rule").textContent = "Points on every single-race board: " + POINTS.join(", ") + " for 1st, 2nd, 3rd and so on. Co-op runs don't score.";
+  $("points-rule").textContent = "Points on every board: " + POINTS.join(", ") + " for 1st, 2nd, 3rd and so on. Full-game boards count extra (see Full game). Co-op runs don't score.";
   let got;
   try { got = await loadRaw(); }
   catch (e) {

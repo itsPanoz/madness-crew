@@ -54,7 +54,7 @@ tr.crew td.who { color: var(--yellow); }
 .who button:focus-visible { outline: 2px solid var(--green); }
 .tag { font: 700 11px var(--display); letter-spacing: .1em; text-transform: uppercase; color: #111; background: var(--yellow); border-radius: 3px; padding: 0 5px; }
 .av { width: 26px; height: 26px; border-radius: 6px; position: relative; flex: none; display: grid; place-items: center; font: 600 15px var(--display); color: #fff; }
-.av img.pic { width: 100%; height: 100%; border-radius: inherit; display: block; object-fit: cover; }
+.av img.pic { position: absolute; inset: 0; width: 100%; height: 100%; border-radius: inherit; display: block; object-fit: cover; }
 .av img.flag { position: absolute; right: -4px; bottom: -3px; width: 14px; height: auto; border: 1px solid #000; }
 .cup { height: 18px; width: auto; image-rendering: pixelated; vertical-align: -4px; }
 .cups { display: flex; gap: 10px; align-items: center; }
