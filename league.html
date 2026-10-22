@@ -1,0 +1,111 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Madness Crew League</title>
+<meta name="description" content="Madness Crew multiplayer league: ratings, tournaments, seasons, levels and prestige for Midtown Madness.">
+<link rel="icon" href="img/logo.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@600;700;800&family=Barlow:wght@400;500;600&display=swap">
+<script>
+  window.FRESH = Math.floor(Date.now() / 600000);
+  document.write('<link rel="stylesheet" href="style.css?t=' + window.FRESH + '">');
+  document.write('<link rel="stylesheet" href="league.css?t=' + window.FRESH + '">');
+</script>
+</head>
+<body>
+<header class="site-head">
+  <div class="wrap head-row">
+    <a class="brand" href="index.html"><img src="img/logo.png" alt="Madness Crew logo"><span><b id="site-name">Madness Crew</b><small>Multiplayer league · tournaments · prestige</small></span></a>
+    <nav aria-label="Sections">
+      <a href="index.html" class="other">Speedruns</a>
+      <a href="#ladder">Ladder</a><a href="#tournaments">Tournaments</a><a href="#seasons">Seasons</a><a href="#races">Races</a><a href="#records">Records</a><a href="#ranks">Ranks</a>
+    </nav>
+    <div class="account" id="account"></div>
+  </div>
+</header>
+
+<main class="wrap" id="top">
+  <p class="status" id="status" role="status">Loading the league…</p>
+  <div class="demo-note" id="demo-note" hidden></div>
+
+  <section id="me" hidden></section>
+
+  <section id="ladder">
+    <div class="sec-head">
+      <h2>Ladder</h2>
+      <p class="sub" id="ladder-sub"></p>
+      <div class="seg" role="group" aria-label="Sort the ladder by">
+        <button type="button" data-sort="rating" aria-pressed="true">Rating</button>
+        <button type="button" data-sort="level" aria-pressed="false">Level</button>
+        <button type="button" data-sort="wins" aria-pressed="false">Wins</button>
+      </div>
+    </div>
+    <div class="tw"><table id="ladder-table"><tbody><tr><td class="loading">Loading…</td></tr></tbody></table></div>
+  </section>
+
+  <section id="tournaments">
+    <div class="sec-head">
+      <h2>Tournaments</h2>
+      <p class="sub">Sign up, check in, and follow the brackets live. Click one to open it.</p>
+      <button type="button" class="btn" id="new-tournament" hidden>New tournament</button>
+    </div>
+    <div class="tlist" id="tlist"></div>
+    <div id="tview"></div>
+  </section>
+
+  <div class="twocol">
+    <section id="seasons">
+      <div class="sec-head"><h2>Seasons</h2><p class="sub" id="season-sub"></p></div>
+      <div class="tabs" role="tablist" id="season-tabs"></div>
+      <div class="tw"><table id="season-table"></table></div>
+    </section>
+    <section id="races">
+      <div class="sec-head">
+        <h2>Latest races</h2>
+        <button type="button" class="btn" id="report-casual" hidden>Report a race</button>
+      </div>
+      <div class="feed" id="race-feed"></div>
+    </section>
+  </div>
+
+  <section id="profile" hidden></section>
+
+  <section id="records">
+    <div class="sec-head"><h2>Records</h2><p class="sub">The Hall of Fame: all-time records, every champion, season winners and the prestige roll.</p></div>
+    <div class="records" id="records-body"></div>
+  </section>
+
+  <section id="ranks">
+    <div class="sec-head"><h2>Levels &amp; prestige</h2><p class="sub">How XP works, every level title and every prestige emblem.</p></div>
+    <div class="ranks" id="ranks-body"></div>
+  </section>
+
+  <section id="organiser" hidden></section>
+
+  <footer class="foot">
+    Ratings use OpenSkill, made for races with many drivers. A reported race counts once an organiser verifies it.
+    Settings are in <code>league-config.js</code>. Speedrun boards are on the <a href="index.html">Speedruns</a> page.
+  </footer>
+</main>
+
+<dialog id="dlg"><form method="dialog" id="dlg-form"></form></dialog>
+
+<script>
+  document.write('<script src="crew.js?t=' + window.FRESH + '"><\/script>');
+  document.write('<script src="league-config.js?t=' + window.FRESH + '"><\/script>');
+</script>
+<script>
+  // runs after league-config.js: the database library only loads once the league is connected
+  // connected: the database library; not yet: the Challonge history for the demo
+  if (window.LEAGUE && window.LEAGUE.supabaseUrl && window.LEAGUE.supabaseKey)
+    document.write('<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.js"><\/script>');
+  else
+    document.write('<script src="league-history.js?t=' + window.FRESH + '"><\/script>');
+  document.write('<script src="league-core.js?t=' + window.FRESH + '"><\/script>');
+  document.write('<script src="league-demo.js?t=' + window.FRESH + '"><\/script>');
+  document.write('<script src="league.js?t=' + window.FRESH + '"><\/script>');
+</script>
+</body>
+</html>
