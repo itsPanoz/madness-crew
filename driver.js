@@ -131,7 +131,25 @@ async function loadLeague() {
 
 // ------------------------------------------------------------------ page
 
-let RUN = {}, L = null, tab = "overview";
+let RUN = {}, L = null, LK = { race: null, cnr: null }, tab = "overview";
+
+// racing and Cops & Robbers are rated apart, as on the League page (league.js splitData)
+const isCnR = mode => mode === "Cops & Robbers";
+function splitData(D, cnr) {
+  const races = D.races.filter(r => isCnR(r.mode) === cnr);
+  const ids = new Set(races.map(r => r.id));
+  const tours = D.tournaments.filter(t => isCnR(t.settings && t.settings.mode) === cnr);
+  const tids = new Set(tours.map(t => t.id));
+  return { ...D, races, tournaments: tours, entries: D.entries.filter(e => tids.has(e.tournament_id)),
+    race_results: D.race_results.filter(x => ids.has(x.race_id)), race_confirms: D.race_confirms.filter(x => ids.has(x.race_id)) };
+}
+const NONE = { races: 0, wins: 0, podiums: 0, ratingValue: 0 };
+const statOf = (p, k) => (LK[k] && LK[k].P.get(p.id)) || NONE;
+function kindRank(p, k) {
+  const min = CFG.ladderMinRaces || 3;
+  const rated = [...L.P.values()].filter(x => !x.hidden && statOf(x, k).races >= min).sort((a, b) => statOf(b, k).ratingValue - statOf(a, k).ratingValue);
+  return rated.indexOf(p) + 1;
+}
 
 function findDriver(name) {
   const n = low(name);
@@ -166,16 +184,18 @@ function render(name) {
   const lvText = lv ? (lv.master ? `${lv.rank.name} · Master level ${lv.masterLevel}` : `${lv.prestige ? `Prestige ${lv.prestige} · ` : ""}Level ${lv.level}${lv.canPrestige ? " · ready to prestige" : ""}`) : "";
   document.title = `${d.name} · Madness Crew`;
 
+  const sr = lp ? statOf(lp, "race") : NONE, sc = lp ? statOf(lp, "cnr") : NONE;
+  const rr = lp ? kindRank(lp, "race") : 0, rc = lp ? kindRank(lp, "cnr") : 0;
   const nums = [
-    lp && lp.races ? [`League rating`, lp.ratingValue, rank ? `#${rank}` : ""] : [`League rating`, "–", "no races yet"],
-    lp ? [`League wins`, lp.wins, `of ${lp.races}`] : [`League wins`, "–", "not on the League"],
+    sr.races ? [`Racing rating`, sr.ratingValue, rr ? `#${rr}` : `${sr.races} races`] : [`Racing rating`, "–", lp ? "no races yet" : "not on the League"],
+    sc.races ? [`Cops & Robbers rating`, sc.ratingValue, rc ? `#${rc}` : `${sc.races} games`] : [`Cops & Robbers rating`, "–", lp ? "no games yet" : "not on the League"],
     sp ? [`Speedrun points`, sp.pts, `${ord(srank)}`] : [`Speedrun points`, "–", "no runs"],
     sp ? [`Board wins`, sp.cups[1], `of ${sp.runs.length}`] : [`Board wins`, "–", ""],
   ];
 
   const leagueHalf = lp ? `
-      <div class="drow"><span>Races</span><span>${lp.races}</span></div>
-      <div class="drow"><span>Podium rate</span><span>${lp.races ? Math.round(100 * lp.podiums / lp.races) + "%" : "–"}</span></div>
+      <div class="drow"><span>Racing</span><span>${sr.races} races · ${sr.wins} wins</span></div>
+      <div class="drow"><span>Cops &amp; Robbers</span><span>${sc.races} games · ${sc.wins} wins</span></div>
       <div class="drow"><span>Last 5</span><span>${lp.recent.slice(0, 5).map(r => r.place).join(" · ") || "–"}</span></div>
       <div class="drow"><span>Rival</span><span>${lp.rival && L.P.get(lp.rival.id) ? `<a href="#d=${encodeURIComponent(L.P.get(lp.rival.id).name)}">${esc(L.P.get(lp.rival.id).name)}</a> (${lp.rival.w}–${lp.rival.l})` : "–"}</span></div>
       ${lv ? `<div class="dxp"><small>${esc(lvText)}</small><div class="dbar"><i style="width:${lv.need ? Math.round(100 * lv.into / lv.need) : 100}%"></i></div></div>` : ""}`
@@ -253,7 +273,10 @@ window.addEventListener("hashchange", () => { tab = "overview"; render(current()
   const notes = [];
   await Promise.all([
     loadSpeedruns().then(raw => { RUN = buildRunners(raw); }).catch(e => notes.push("speedrun.com didn't answer (" + e.message + ")")),
-    loadLeague().then(D => { L = CORE.compute(D, CFG, POINTS); }).catch(e => notes.push("the League didn't load (" + e.message + ")")),
+    loadLeague().then(D => {
+      L = CORE.compute(D, CFG, POINTS);
+      LK = { race: CORE.compute(splitData(D, false), CFG, POINTS), cnr: CORE.compute(splitData(D, true), CFG, POINTS) };
+    }).catch(e => notes.push("the League didn't load (" + e.message + ")")),
   ]);
   render(current());
   if (notes.length) $("status").textContent = "Some numbers are missing: " + notes.join("; ") + ".";

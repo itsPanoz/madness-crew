@@ -37,6 +37,11 @@
     <div class="sec-head">
       <h2>Ladder</h2>
       <p class="sub" id="ladder-sub"></p>
+      <div class="seg" role="group" aria-label="Which games">
+        <button type="button" data-kind="race" aria-pressed="true">Racing</button>
+        <button type="button" data-kind="cnr" aria-pressed="false">Cops &amp; Robbers</button>
+        <button type="button" data-kind="all" aria-pressed="false">Overall</button>
+      </div>
       <div class="seg" role="group" aria-label="Sort the ladder by">
         <button type="button" data-sort="rating" aria-pressed="true">Rating</button>
         <button type="button" data-sort="level" aria-pressed="false">Level</button>
@@ -74,7 +79,11 @@
   <section id="profile" hidden></section>
 
   <section id="records">
-    <div class="sec-head"><h2>Records</h2><p class="sub">The Hall of Fame: all-time records, every champion, season winners and the prestige roll.</p></div>
+    <div class="sec-head"><h2>Records</h2><p class="sub">The Hall of Fame: all-time records, every champion, season winners and the prestige roll.</p>
+      <div class="seg" role="group" aria-label="Records for">
+        <button type="button" data-reckind="race" aria-pressed="true">Racing</button>
+        <button type="button" data-reckind="cnr" aria-pressed="false">Cops &amp; Robbers</button>
+      </div></div>
     <div class="records" id="records-body"></div>
   </section>
 

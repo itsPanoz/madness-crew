@@ -248,3 +248,31 @@ dialog form { display: grid; gap: 10px; }
 .gamekey { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); }
 .gamekey h4 { margin: 0 0 4px; }
 .gamekey code { font-size: 14px; padding: 4px 8px; user-select: all; overflow-wrap: anywhere; }
+
+/* racing and Cops & Robbers apart: the profile's two boxes */
+.kboxes { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 12px; margin: 14px 0; }
+@media (max-width: 640px) { .kboxes { grid-template-columns: 1fr; } }
+.kbox { background: var(--panel2); border: 1px solid var(--line); border-radius: 8px; padding: 10px 14px; min-width: 0; }
+.kbox h4 { margin: 0 0 6px; display: flex; align-items: center; gap: 8px; }
+.kbox h4::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: var(--green); }
+.kbox.kc h4::before { background: #4d8dff; }
+.krow { display: flex; justify-content: space-between; gap: 10px; padding: 4px 0; border-bottom: 1px solid var(--line); font-size: 14px; }
+.krow:last-child { border-bottom: 0; }
+.krow span:first-child { color: var(--dim); }
+.krow span:last-child { font-variant-numeric: tabular-nums; }
+
+/* Latest races: a race opens under its row */
+.feed-row .what[data-act="race-open"] { cursor: pointer; }
+.feed-row .what[data-act="race-open"]:hover small:first-child, .feed-row .what[data-act="race-open"]:focus-visible small:first-child { color: var(--fg); }
+.feed-row .what[data-act="race-open"]:focus-visible { outline: 2px solid var(--green); outline-offset: 2px; border-radius: 4px; }
+.feed-row .opener { color: var(--yellow); font-size: 11px; }
+.feed-row.open { background: var(--panel2); box-shadow: inset 3px 0 0 var(--yellow); }
+.race-detail { padding: 10px 14px 12px 106px; border-bottom: 1px solid var(--line); background: var(--panel); }
+@media (max-width: 640px) { .race-detail { padding-left: 14px; } }
+.rtable { width: 100%; border-collapse: collapse; font-size: 14px; }
+.rtable th { text-align: left; color: var(--dim); font: 600 12px var(--display); letter-spacing: .06em; text-transform: uppercase; padding: 4px 8px; border-bottom: 1px solid var(--line); }
+.rtable td { padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.rtable .num { text-align: right; font-variant-numeric: tabular-nums; }
+.rtable tr.mine td { background: rgba(236, 214, 40, .08); }
+.rtable .dnf { color: #e2574c; font: 700 13px var(--display); }
+.rcar { width: 56px; height: auto; display: block; }

@@ -147,6 +147,8 @@
       data[table] = data[table].filter(r => !matches(r, match));
       if (table === "races") { const ids = new Set(data.races.map(r => r.id)); data.race_results = data.race_results.filter(r => ids.has(r.race_id)); data.race_confirms = data.race_confirms.filter(r => ids.has(r.race_id)); }
       if (table === "tournaments") { const ids = new Set(data.tournaments.map(t => t.id)); data.entries = data.entries.filter(e => ids.has(e.tournament_id)); }
+      // a deleted driver takes their results and entries with them (the database's on delete cascade)
+      if (table === "players") { const ids = new Set(data.players.map(p => p.id)); data.race_results = data.race_results.filter(r => ids.has(r.player_id)); data.entries = data.entries.filter(e => ids.has(e.player_id)); }
       save();
     },
     // demo sign-in: act as any player, organiser or not

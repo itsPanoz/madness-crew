@@ -80,6 +80,12 @@ let L = null;      // worked out by league-core
 let me = null;     // my player row (from L.P), if signed in and linked
 let isOrg = false;
 let ladderSort = "rating";
+// Racing and Cops & Robbers are rated apart (Robin 2026-10-22): the ladder's switch, the records' switch.
+// Level and XP stay one number for everything (they come from L, every game).
+let ladderKind = "race", recKind = "race";
+try { ladderKind = localStorage.getItem("madness-league-kind") || "race"; } catch (e) { /* private window: fine */ }
+let LK = { race: null, cnr: null };   // the League worked out on racing only / Cops & Robbers only
+let openRace = null;                  // the race opened under its row in Latest races
 let openT = null;  // open tournament id
 let openP = null;  // open profile id
 let seasonPick = null;
@@ -94,10 +100,26 @@ const drivers = () => [...L.P.values()].filter(p => !p.hidden);
 const isCrew = p => p && (crewSet.has(String(p.src_name || "").toLowerCase()) || crewSet.has(String(p.name).toLowerCase()));
 const crewTag = p => isCrew(p) ? ` <img class="crewbadge" src="img/logo.png" alt="Madness Crew" title="Madness Crew">` : "";
 
+// Cops & Robbers games (and C&R tournaments) on their own, or everything else (racing)
+const isCnR = mode => mode === "Cops & Robbers";
+function splitData(D, cnr) {
+  const races = D.races.filter(r => isCnR(r.mode) === cnr);
+  const ids = new Set(races.map(r => r.id));
+  const tours = D.tournaments.filter(t => isCnR(t.settings && t.settings.mode) === cnr);
+  const tids = new Set(tours.map(t => t.id));
+  return { ...D, races, tournaments: tours, entries: D.entries.filter(e => tids.has(e.tournament_id)),
+    race_results: D.race_results.filter(x => ids.has(x.race_id)), race_confirms: D.race_confirms.filter(x => ids.has(x.race_id)) };
+}
+// one driver's numbers for a kind of game ("all" = everything); a driver who never played that kind gets zeros
+const NONE = { races: 0, wins: 0, podiums: 0, ratingValue: 0, recent: [], bestStreak: null, tournaments: [], h2h: new Map(), rival: null };
+const statOf = (p, kind) => kind === "all" || !LK[kind] ? p : (LK[kind].P.get(p.id) || NONE);
+const gamesWord = kind => kind === "race" ? "races" : "games"; // Overall mixes both, so it counts games too
+
 async function refresh() {
   try {
     D = await store.loadAll();
     L = CORE.compute(D, CFG, POINTS);
+    LK = { race: CORE.compute(splitData(D, false), CFG, POINTS), cnr: CORE.compute(splitData(D, true), CFG, POINTS) };
   } catch (e) {
     setStatus("Couldn't load the league (" + e.message + "). Try again in a minute.", true);
     return;
@@ -222,29 +244,33 @@ function renderMe() {
 function renderLadder() {
   const min = CFG.ladderMinRaces || 3;
   const all = drivers();
+  const k = ladderKind, S = p => statOf(p, k), word = gamesWord(k);
   let ranked, rest = [];
   if (ladderSort === "rating") {
-    ranked = all.filter(p => p.races >= min).sort((a, b) => b.ratingValue - a.ratingValue || b.wins - a.wins);
-    rest = all.filter(p => p.races < min).sort((a, b) => b.races - a.races || a.name.localeCompare(b.name));
+    ranked = all.filter(p => S(p).races >= min).sort((a, b) => S(b).ratingValue - S(a).ratingValue || S(b).wins - S(a).wins);
+    rest = all.filter(p => S(p).races < min).sort((a, b) => S(b).races - S(a).races || a.name.localeCompare(b.name));
   } else if (ladderSort === "level") {
     ranked = all.slice().sort((a, b) => b.xp - a.xp || a.name.localeCompare(b.name));
   } else {
-    ranked = all.filter(p => p.races).sort((a, b) => b.wins - a.wins || b.podiums - a.podiums || b.ratingValue - a.ratingValue);
-    rest = all.filter(p => !p.races);
+    ranked = all.filter(p => S(p).races).sort((a, b) => S(b).wins - S(a).wins || S(b).podiums - S(a).podiums || S(b).ratingValue - S(a).ratingValue);
+    rest = all.filter(p => !S(p).races);
   }
+  const which = k === "race" ? "racing" : k === "cnr" ? "Cops & Robbers" : "every game, racing and Cops & Robbers together";
   $("ladder-sub").textContent = ladderSort === "rating"
-    ? `Skill rating from every counted race. It needs ${min} races to get a place; new drivers start at 1000.`
-    : ladderSort === "level" ? "Everyone by total XP, prestige included." : "Most race wins.";
+    ? `Skill rating from ${which}. It needs ${min} ${word} to get a place; new drivers start at 1000.`
+    : ladderSort === "level" ? "Everyone by total XP, prestige included (one level for racing and Cops & Robbers)." : `Most wins in ${which}.`;
   for (const b of document.querySelectorAll("[data-sort]")) b.setAttribute("aria-pressed", String(b.dataset.sort === ladderSort));
+  for (const b of document.querySelectorAll("[data-kind]")) b.setAttribute("aria-pressed", String(b.dataset.kind === ladderKind));
   const row = (p, i) => {
-    const form = p.recent.slice(0, 5).map(r => placeChip(r.place, r.field)).join("");
+    const s = S(p);
+    const form = s.recent.slice(0, 5).map(r => placeChip(r.place, r.field)).join("");
     return `<tr class="${isCrew(p) ? "crew" : ""}${me && p.id === me.id ? " mine" : ""}"><td class="rank">${i == null ? "–" : i + 1}</td><td>${who(p)}</td>` +
-      `<td class="num pts">${p.races ? p.ratingValue : "–"}</td><td class="lv">${esc(lvText(p.lv))}</td><td class="num">${p.races}</td><td class="num">${p.wins}</td>` +
-      `<td class="num">${p.races ? Math.round((100 * p.podiums) / p.races) + "%" : "–"}</td><td><span class="form">${form}</span></td></tr>`;
+      `<td class="num pts">${s.races ? s.ratingValue : "–"}</td><td class="lv">${esc(lvText(p.lv))}</td><td class="num">${s.races}</td><td class="num">${s.wins}</td>` +
+      `<td class="num">${s.races ? Math.round((100 * s.podiums) / s.races) + "%" : "–"}</td><td><span class="form">${form}</span></td></tr>`;
   };
-  let h = `<thead><tr><th>#</th><th>Driver</th><th class="num">Rating</th><th>Level</th><th class="num">Races</th><th class="num">Wins</th><th class="num">Podium</th><th>Last 5</th></tr></thead><tbody>`;
+  let h = `<thead><tr><th>#</th><th>Driver</th><th class="num">Rating</th><th>Level</th><th class="num">${word === "games" ? "Games" : "Races"}</th><th class="num">Wins</th><th class="num">Podium</th><th>Last 5</th></tr></thead><tbody>`;
   h += ranked.map((p, i) => row(p, i)).join("");
-  if (rest.length) h += `<tr class="divider"><td colspan="8">${ladderSort === "rating" ? `Fewer than ${min} races` : "No races yet"}</td></tr>` + rest.map(p => row(p, null)).join("");
+  if (rest.length) h += `<tr class="divider"><td colspan="8">${ladderSort === "rating" ? `Fewer than ${min} ${word}` : `No ${word} yet`}</td></tr>` + rest.map(p => row(p, null)).join("");
   if (!all.length) h += `<tr><td colspan="8" class="loading">No drivers yet. Sign in and create yours.</td></tr>`;
   $("ladder-table").innerHTML = h + "</tbody>";
 }
@@ -562,15 +588,17 @@ function renderTour() {
 
 // ---------------------------------------------------------------- races feed
 
-function raceLine(r) {
+function raceLine(r, openable) {
   const t = r.tournament_id && D.tournaments.find(x => x.id === r.tournament_id);
   const res = r.results.map(x => `<span class="${me && x.player_id === me.id ? "mine" : ""}">${x.dnf ? "DNF" : x.place + "."} ${esc(nameOf(x.player_id))}${x.score != null ? ` <b class="rscore">${x.score}</b>` : ""}</span>`);
   const shown = res.slice(0, 4).join(" ") + (res.length > 4 ? ` <span class="mini">+${res.length - 4}</span>` : "");
   const canConfirm = !r.counted && isOrg;
   const canDelete = store.user && (isOrg || (store.user.id === r.entered_by && !r.confirms.length));
   const where = [t ? t.name : "Casual", r.city, r.mode, r.race_name].filter(Boolean).map(esc).join(" · ");
-  return `<div class="feed-row race${r.counted ? "" : " pending"}"><span class="mini when">${fmtWhen(r.at)}</span>` +
-    `<div class="what"><small>${where}</small><div class="res">${shown}</div>${r.note ? `<small>${esc(r.note)}</small>` : ""}</div>` +
+  const open = openable && openRace === r.id;
+  return `<div class="feed-row race${r.counted ? "" : " pending"}${open ? " open" : ""}"><span class="mini when">${fmtWhen(r.at)}</span>` +
+    `<div class="what"${openable ? ` data-act="race-open" data-id="${r.id}" role="button" tabindex="0" aria-expanded="${open}" title="${open ? "Close" : "See the whole race"}"` : ""}>` +
+    `<small>${where}${openable ? ` <span class="opener">${open ? "▲" : "▼"}</span>` : ""}</small><div class="res">${shown}</div>${r.note ? `<small>${esc(r.note)}</small>` : ""}</div>` +
     `<div class="ra">${r.counted ? "" : `<span class="mini warn">not verified yet</span>`}` +
     (canConfirm ? `<button type="button" class="btn small" data-act="confirm" data-id="${r.id}">Verify</button>` : "") +
     (isOrg && !r.imported ? `<button type="button" class="x" data-act="edit-race" data-id="${r.id}" title="Edit this race">✎</button>` : "") +
@@ -583,7 +611,28 @@ const bySent = () => L.races.slice().sort((a, b) => sentAt(b) - sentAt(a));
 function renderRaces() {
   $("report-casual").hidden = !(me || isOrg);
   const list = bySent().slice(0, 15);
-  $("race-feed").innerHTML = list.map(raceLine).join("") || `<div class="feed-row"><span class="none">No races yet.</span></div>`;
+  $("race-feed").innerHTML = list.map(r => raceLine(r, true) + (openRace === r.id ? raceDetail(r) : "")).join("") ||
+    `<div class="feed-row"><span class="none">No races yet.</span></div>`;
+}
+
+// a race opened from Latest races: every driver's place, score, time and car, and where it came from
+const fmtTime = ms => { const cs = Math.round(ms / 10), m = Math.floor(cs / 6000), s = Math.floor(cs / 100) % 60; return `${m}:${String(s).padStart(2, "0")}.${String(cs % 100).padStart(2, "0")}`; };
+const CAR_NAMES = { vpmustang99: "Mustang GT", vppanozgt: "Panoz GTR-1", vppanoz: "Panoz Roadster", vpbug: "New Beetle", vpbullet: "Mustang Fastback",
+  vpford: "Ford F-350", vpcaddie: "Cadillac Eldorado", vpcop: "Police Mustang", vpbus: "City Bus", vpsemi: "Freightliner", vpmtruck: "Monster Truck", vppanozirt: "IRT Panoz GTR-1" };
+const carName = car => CAR_NAMES[String(car).replace(/_\d+$/, "")] || String(car).replace(/_\d+$/, "");
+function raceDetail(r) {
+  const t = r.tournament_id && D.tournaments.find(x => x.id === r.tournament_id);
+  const by = r.entered_by && [...L.P.values()].find(p => p.user_id === r.entered_by);
+  const scores = r.results.some(x => x.score != null), times = r.results.some(x => x.time_ms), cars = r.results.some(x => x.car);
+  const rows = r.results.slice().sort((a, b) => a.place - b.place).map(x => `<tr${me && x.player_id === me.id ? ` class="mine"` : ""}>` +
+    `<td>${x.dnf ? `<span class="dnf">DNF</span>` : placeChip(x.place, 0)}</td><td>${P(x.player_id) && !P(x.player_id).hidden ? who(P(x.player_id), { size: 18 }) : esc(nameOf(x.player_id))}</td>` +
+    (scores ? `<td class="num">${x.score != null ? x.score : "–"}</td>` : "") +
+    (times ? `<td class="num">${x.time_ms ? fmtTime(x.time_ms) : "–"}</td>` : "") +
+    (cars ? `<td>${x.car ? `<img class="rcar" src="img/cars/${esc(x.car)}.png" alt="${esc(carName(x.car))}" title="${esc(carName(x.car))}" onerror="this.remove()">` : ""}</td>` : "") + `</tr>`).join("");
+  const facts = [t ? t.name : "Casual race", fmtWhen(r.at), by ? `entered by ${esc(by.name)}` : "", r.source === "game" ? "sent by the game" : r.imported ? "from Challonge" : "",
+    r.counted ? "counted" : "waiting to be verified"].filter(Boolean);
+  return `<div class="race-detail"><div class="tw"><table class="rtable"><thead><tr><th>Place</th><th>Driver</th>${scores ? `<th class="num">Score</th>` : ""}${times ? `<th class="num">Time</th>` : ""}${cars ? `<th>Car</th>` : ""}</tr></thead>` +
+    `<tbody>${rows}</tbody></table></div><p class="mini">${facts.join(" · ")}</p></div>`;
 }
 
 // ---------------------------------------------------------------- seasons
@@ -601,6 +650,34 @@ function renderSeasons() {
 }
 
 // ---------------------------------------------------------------- profile
+
+// a driver's racing and Cops & Robbers numbers side by side (each rated on its own)
+function kindBoxes(p) {
+  const min = CFG.ladderMinRaces || 3;
+  const box = (k, title, cls) => {
+    const s = statOf(p, k), word = gamesWord(k);
+    const rated = drivers().filter(x => statOf(x, k).races >= min).sort((a, b) => statOf(b, k).ratingValue - statOf(a, k).ratingValue);
+    const rank = rated.indexOf(p) + 1;
+    return `<div class="kbox ${cls}"><h4>${title}</h4>` +
+      `<div class="krow"><span>Rating</span><span>${s.races ? s.ratingValue : "–"}${rank ? ` · ${ord(rank)}` : ""}</span></div>` +
+      `<div class="krow"><span>${word === "games" ? "Games" : "Races"}</span><span>${s.races}</span></div>` +
+      `<div class="krow"><span>Wins</span><span>${s.wins}</span></div>` +
+      `<div class="krow"><span>Podium rate</span><span>${s.races ? Math.round(100 * s.podiums / s.races) + "%" : "–"}</span></div></div>`;
+  };
+  return `<div class="kboxes">${box("race", "Racing", "kr")}${box("cnr", "Cops &amp; Robbers", "kc")}</div>`;
+}
+
+// drivers that races made (sent by the game, or typed into a report): a quick delete for typos and one-offs
+const low = s => String(s || "").toLowerCase();
+function newDriversHtml() {
+  const made = drivers().filter(p => p.source).sort((a, b) => String(b.created_at).localeCompare(String(a.created_at)));
+  if (!made.length) return `<h3 class="h3">New drivers from races</h3><p class="mini">None. Names a race brings in that aren't on the League show up here, to keep or delete.</p>`;
+  return `<h3 class="h3">New drivers from races (${made.length})</h3>
+    <p class="mini">Made when a race had a name nobody on the League uses. Keep the real ones; delete typos and one-off names (their places in those races go too). If it's someone who's already here under another name, use Merge, or add it to their "Also races as" names.</p>
+    <div class="olist">${made.map(p => `<div class="trow"><span>${who(p, { size: 18 })} <span class="mini">· ${p.source === "game" ? "from the game" : "typed in a report"} · ${fmtDay(p.created_at)} · ${p.races} ${p.races === 1 ? "race" : "races"}</span></span>
+      <span class="acts"><button type="button" class="btn ghost small" data-act="org-keep" data-id="${p.id}">Keep</button>
+      <button type="button" class="btn ghost small danger" data-act="org-delete" data-id="${p.id}">Delete</button></span></div>`).join("")}</div>`;
+}
 
 // ---------------------------------------------------------------- game key (races sent by the game)
 
@@ -661,6 +738,7 @@ function renderProfile() {
       <div class="stat"><b>${p.tournaments.filter(x => x.place === 1).length}</b><span>tournaments won</span></div>
       <div class="stat"><b>${p.bestStreak ? p.bestStreak.n : 0}</b><span>longest win streak${p.streak > 1 ? ` (on ${p.streak} now)` : ""}</span></div>
     </div>
+    ${kindBoxes(p)}
     ${me && me.id === p.id ? gameKeyHtml() : ""}
     ${ratingGraph(p)}
     ${rivalHtml(p)}
@@ -720,18 +798,22 @@ function h2hHtml(p) {
 
 function renderRecords() {
   const ps = drivers();
-  const rated = ps.filter(p => p.races >= MIN_RATED());
+  // the record tiles are for racing or for Cops & Robbers (the switch); the wall, seasons and prestige roll cover everything
+  const S = p => statOf(p, recKind), word = gamesWord(recKind);
+  for (const b of document.querySelectorAll("[data-reckind]")) b.setAttribute("aria-pressed", String(b.dataset.reckind === recKind));
+  const rated = ps.filter(p => S(p).races >= MIN_RATED());
   const top = (list, score) => list.filter(p => score(p) > 0).sort((a, b) => score(b) - score(a))[0];
   const tile = (title, p, value, detail) => `<div class="rtile"><span class="mini">${title}</span>${p ? who(p, { size: 22 }) : `<span class="none">Nobody yet</span>`}<b>${p ? value : ""}</b>${detail ? `<small>${detail}</small>` : ""}</div>`;
-  const wins = top(ps, p => p.wins), races = top(ps, p => p.races), streak = top(ps, p => p.bestStreak ? p.bestStreak.n : 0);
-  const peak = top(rated, peakOf), tw = top(ps, p => p.tournaments.filter(x => x.place === 1).length);
-  const u = L.upset;
+  const wins = top(ps, p => S(p).wins), races = top(ps, p => S(p).races), streak = top(ps, p => S(p).bestStreak ? S(p).bestStreak.n : 0);
+  const peak = top(rated, p => peakOf(S(p))), tw = top(ps, p => S(p).tournaments.filter(x => x.place === 1).length);
+  const u = LK[recKind] ? LK[recKind].upset : L.upset;
+  const label = recKind === "cnr" ? "Cops & Robbers" : "race";
   const records = [
-    tile("Most race wins", wins, wins && wins.wins, wins && `from ${wins.races} races`),
-    tile("Most races", races, races && races.races),
-    tile("Longest win streak", streak, streak && `${streak.bestStreak.n} wins in a row`, streak && `${fmtDay(streak.bestStreak.from)} – ${fmtDay(streak.bestStreak.to)}`),
-    tile("Highest peak rating", peak, peak && peakOf(peak)),
-    tile("Most tournament wins", tw, tw && tw.tournaments.filter(x => x.place === 1).length),
+    tile(`Most ${label} wins`, wins, wins && S(wins).wins, wins && `from ${S(wins).races} ${word}`),
+    tile(`Most ${word}`, races, races && S(races).races),
+    tile("Longest win streak", streak, streak && `${S(streak).bestStreak.n} wins in a row`, streak && `${fmtDay(S(streak).bestStreak.from)} – ${fmtDay(S(streak).bestStreak.to)}`),
+    tile("Highest peak rating", peak, peak && peakOf(S(peak))),
+    tile("Most tournament wins", tw, tw && S(tw).tournaments.filter(x => x.place === 1).length),
     u && P(u.winner) ? `<div class="rtile"><span class="mini">Biggest upset</span>${who(P(u.winner), { size: 22 })}<b>+${u.gap}</b><small>${u.wr} beat ${esc(nameOf(u.loser))} (${u.lr}) · ${esc([D.tournaments.find(t => t.id === u.race.tournament_id)?.name, fmtDay(u.race.at)].filter(Boolean).join(" · "))}</small></div>` : tile("Biggest upset", null),
   ].join("");
 
@@ -840,6 +922,7 @@ function renderOrganiser() {
       <label>Add a driver <input id="org-new-driver" maxlength="32" placeholder="name"></label><button type="button" class="btn ghost" data-act="org-add-driver">Add</button></div>
       <p class="mini">Merge joins two names that are one person. Removed drivers keep their name in old tournaments and races, and leave everything else.</p>
       <div class="olist" id="org-dlist">${orgDriverRows()}</div>
+      ${newDriversHtml()}
       <h3 class="h3">Claims to approve${claims.length ? ` (${claims.length})` : ""}</h3>
       ${claims.length ? `<div class="feed">${claims.map(c => `<div class="feed-row"><div class="what"><b>${esc(c.discord_name || "someone")}</b> <span class="mini">on Discord wants to be</span> <b>${esc(nameOf(c.player_id))}</b></div>
         <div class="ra"><button type="button" class="btn small" data-act="claim-ok" data-id="${c.player_id}" data-u="${esc(c.user_id)}" data-av="${esc(c.avatar_url || "")}">Approve</button>
@@ -996,10 +1079,19 @@ function reportDialog(opt) {
     <label id="r-race-w">Race <select id="r-race"></select></label><label id="r-other-w">Race name <input id="r-other" maxlength="60" placeholder="e.g. Lakefront 77"></label>
     <label>Played <input type="datetime-local" id="r-when" value="${now}"></label></div>
     <ol class="order" id="r-order"></ol>
-    ${fixed ? "" : `<div class="row"><select id="r-add"></select><button type="button" class="btn small" data-act="r-add">Add driver</button></div>`}
+    ${fixed ? "" : `<div class="row"><select id="r-add"></select><button type="button" class="btn small" data-act="r-add">Add driver</button>
+      ${isOrg ? `<label>or a new name <input id="r-newname" maxlength="32" placeholder="not on the League yet"></label><button type="button" class="btn ghost small" data-act="r-addnew">Add new</button>` : ""}</div>`}
     <label class="block">Note (optional) <input id="r-note" maxlength="120"></label>
     ${old ? `<p class="mini">Saving replaces the old result, and the change goes in the Organiser change log.</p>` : isOrg ? "" : `<p class="mini">An organiser has to verify it before it counts.</p>`}`, old ? "Save changes" : "Save race", async () => {
     if (order.length < 2) throw new Error("A race needs at least 2 drivers.");
+    // names typed in as new: make those drivers now (organisers only), then save as usual
+    const fresh = order.filter(o => !o.id && o.newName);
+    if (fresh.length) {
+      if (!isOrg) throw new Error("Only organisers add new names.");
+      const made = await store.insert("players", fresh.map(o => ({ name: o.newName, source: "report" })));
+      for (const o of fresh) o.id = (made.find(m => low(m.name) === low(o.newName)) || {}).id;
+      await logChange(`added ${fresh.map(o => o.newName).join(", ")} from a race report`);
+    }
     if (!isOrg && !(me && order.some(o => o.id === me.id))) throw new Error("You can only report races you were in.");
     let rows;
     if (byScore) {
@@ -1066,10 +1158,10 @@ function drawOrder(fixed) {
   const ol = $("r-order");
   if (!ol) return;
   ol.innerHTML = order.map((o, i) => byScore
-    ? `<li><span class="seed">${i + 1}</span><span class="nm">${esc(nameOf(o.id))}</span>
-      <label class="mini">Score <input class="r-score" type="number" inputmode="numeric" data-i="${i}" value="${esc(o.score)}" aria-label="${esc(nameOf(o.id))}'s score"></label>
+    ? `<li><span class="seed">${i + 1}</span><span class="nm">${esc(o.newName ? o.newName + " (new)" : nameOf(o.id))}</span>
+      <label class="mini">Score <input class="r-score" type="number" inputmode="numeric" data-i="${i}" value="${esc(o.score)}" aria-label="${esc(o.newName ? o.newName + " (new)" : nameOf(o.id))}'s score"></label>
       ${fixed ? "" : `<button type="button" class="x" data-act="r-remove" data-i="${i}" aria-label="Remove">×</button>`}</li>`
-    : `<li><span class="seed">${i + 1}</span><span class="nm">${esc(nameOf(o.id))}</span>
+    : `<li><span class="seed">${i + 1}</span><span class="nm">${esc(o.newName ? o.newName + " (new)" : nameOf(o.id))}</span>
     <button type="button" class="x" data-act="r-up" data-i="${i}" aria-label="Move up"${i ? "" : " disabled"}>▲</button>
     <button type="button" class="x" data-act="r-down" data-i="${i}" aria-label="Move down"${i < order.length - 1 ? "" : " disabled"}>▼</button>
     <label class="mini"><input type="checkbox" data-act="r-dnf" data-i="${i}"${o.dnf ? " checked" : ""}> DNF</label>
@@ -1160,6 +1252,7 @@ document.addEventListener("click", e => {
     case "signout": act(() => store.signOut()); break;
     case "profile": openP = id; renderProfile(); history.replaceState(null, "", "#p=" + id); $("profile").scrollIntoView(); break;
     case "game-key": case "game-key-new": showGameKey(a === "game-key-new"); break;
+    case "race-open": openRace = openRace === id ? null : id; renderRaces(); break;
     case "game-key-copy": copyGameKey(); break;
     case "close-p": openP = null; renderProfile(); history.replaceState(null, "", location.pathname); break;
     case "open-t":
@@ -1288,6 +1381,13 @@ document.addEventListener("click", e => {
         seasonPick = s.id;
       });
       break;
+    case "org-keep": act(() => store.update("players", { id }, { source: null })); break;
+    case "org-delete": {
+      const p = P(id);
+      if (confirm(`Delete ${p.name}? ${p.races ? `Their place in ${p.races} ${p.races === 1 ? "race" : "races"} goes too. ` : ""}This can't be undone.`))
+        act(async () => { await store.remove("players", { id }); await logChange(`deleted driver ${p.name}`); });
+      break;
+    }
     case "org-add-driver": act(() => {
       const name = $("org-new-driver").value.trim();
       if (!name) throw new Error("Type a name first.");
@@ -1296,8 +1396,14 @@ document.addEventListener("click", e => {
     case "edit-player": {
       const p = P(id);
       openDialog("Edit driver", `<label class="block">Name <input id="e-name" maxlength="32" value="${esc(p.name)}"></label>
-        <label class="block">speedrun.com name (links their speedrun card) <input id="e-src" maxlength="40" value="${esc(p.src_name || "")}"></label>`, "Save", () =>
-        store.update("players", { id }, { name: $("e-name").value.trim() || p.name, src_name: $("e-src").value.trim() || null }));
+        <label class="block">speedrun.com name (links their speedrun card) <input id="e-src" maxlength="40" value="${esc(p.src_name || "")}"></label>
+        <label class="block">Also races as <input id="e-aliases" maxlength="200" value="${esc((p.aliases || []).join(", "))}" placeholder="e.g. TigerHawk[MC], THawk"></label>
+        <p class="mini">Other names they use in the game, with a comma between them. Races sent by the game under any of them count for ${esc(p.name)}.</p>`, "Save", () => {
+        const aliases = [...new Set($("e-aliases").value.split(",").map(a => a.trim()).filter(Boolean).map(a => a.slice(0, 32)))];
+        const taken = aliases.find(a => drivers().some(x => x.id !== id && (low(x.name) === low(a) || (x.aliases || []).some(y => low(y) === low(a)))));
+        if (taken) throw new Error(`"${taken}" is already another driver's name.`);
+        return store.update("players", { id }, { name: $("e-name").value.trim() || p.name, src_name: $("e-src").value.trim() || null, aliases });
+      });
       break;
     }
     case "dlg-cancel": dlg.close(); break;
@@ -1305,6 +1411,17 @@ document.addEventListener("click", e => {
     case "r-down": { const i = +b.dataset.i; [order[i + 1], order[i]] = [order[i], order[i + 1]]; drawOrder($("r-order").dataset.fixed); break; }
     case "r-remove": order.splice(+b.dataset.i, 1); drawOrder(false); break;
     case "r-add": if ($("r-add").value) { order.push({ id: $("r-add").value, dnf: false }); drawOrder(false); } break;
+    case "r-addnew": {
+      // organisers: a name that isn't on the League yet; the driver is made when the race is saved
+      const name = $("r-newname").value.trim().slice(0, 32);
+      if (!name) break;
+      const known = drivers().find(x => low(x.name) === low(name) || (x.aliases || []).some(y => low(y) === low(name)));
+      if (known) { if (!order.some(o => o.id === known.id)) order.push({ id: known.id, dnf: false }); }
+      else if (!order.some(o => o.newName && low(o.newName) === low(name))) order.push({ id: null, newName: name, dnf: false, score: "" });
+      $("r-newname").value = "";
+      drawOrder(false);
+      break;
+    }
     case "demo-reset": if (confirm("Put the demo back to how it started?")) act(() => store.reset()); break;
   }
 });
@@ -1315,7 +1432,7 @@ document.addEventListener("input", e => {
 });
 // names in brackets are tappable spans: Enter / Space work like a click
 document.addEventListener("keydown", e => {
-  if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("span[data-act]")) { e.preventDefault(); e.target.click(); }
+  if ((e.key === "Enter" || e.key === " ") && e.target.matches && e.target.matches("span[data-act], div[role=button][data-act]")) { e.preventDefault(); e.target.click(); }
 });
 document.addEventListener("change", e => {
   if (e.target.id === "org-rfilter") { raceFilter = e.target.value; racesShown = 30; renderOrganiser(); return; }
@@ -1327,6 +1444,12 @@ document.addEventListener("change", e => {
   }
 });
 for (const b of document.querySelectorAll("[data-sort]")) b.addEventListener("click", () => { ladderSort = b.dataset.sort; renderLadder(); });
+for (const b of document.querySelectorAll("[data-kind]")) b.addEventListener("click", () => {
+  ladderKind = b.dataset.kind;
+  try { localStorage.setItem("madness-league-kind", ladderKind); } catch (e) { /* fine */ }
+  renderLadder();
+});
+for (const b of document.querySelectorAll("[data-reckind]")) b.addEventListener("click", () => { recKind = b.dataset.reckind; renderRecords(); });
 $("new-tournament").addEventListener("click", tournamentDialog);
 $("report-casual").addEventListener("click", () => reportDialog({}));
 
