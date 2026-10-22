@@ -162,6 +162,7 @@
       return data.players.filter(p => p.claim_by && !p.user_id)
         .map(p => ({ player_id: p.id, user_id: p.claim_by, discord_name: p.claim_by === "u-guest" ? "NewDiscordUser" : p.claim_by, avatar_url: null }));
     },
+    async gameKey(rotate) { return rotate ? "mcl_demo_new_key" : "mcl_demo_key"; },
     reset() { data = fresh(); save(); },
     onChange() { /* nothing live in demo */ },
   };

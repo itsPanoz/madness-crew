@@ -7,7 +7,7 @@ window.LEAGUE = {
   supabaseKey: "sb_publishable_65rdjdR-Sd-MA226_-1SuQ_VPtfmG2k", // public (publishable) key - never the secret/service_role one
 
   // what the race report form offers
-  historyXp: false,    // false: the Challonge history gives no XP, everyone started at level 1 (2026-10-20)
+  historyXp: true,     // true: the Challonge races and tournaments give XP again (Robin 2026-10-22; false = everyone from level 1)
   rivalMinRaces: 10,   // races together before someone can be your Rival
   cities: ["Chicago", "Madness City", "Moronville", "Archipelago", "Super Squeeze", "Other"],
   // the races you can pick when reporting a Circuit, Checkpoint or Blitz race, by city and mode. Stock

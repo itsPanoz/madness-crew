@@ -61,6 +61,8 @@ function supabaseStore() {
       const { error } = await q; if (error) throw new Error(error.message);
     },
     async pendingClaims() { const { data, error } = await sb.rpc("pending_claims"); if (error) throw new Error(error.message); return data || []; },
+    // the private key the race board uses to send races you host (supabase/game-results.sql)
+    async gameKey(rotate) { const { data, error } = await sb.rpc("my_game_key", { rotate: !!rotate }); if (error) throw new Error(error.message); return data; },
     signIn() { return sb.auth.signInWithOAuth({ provider: "discord", options: { redirectTo: location.origin + location.pathname } }); },
     async signOut() { await sb.auth.signOut(); this.user = null; },
     onChange(cb) { sb.channel("league").on("postgres_changes", { event: "*", schema: "public" }, cb).subscribe(); },
@@ -574,9 +576,13 @@ function raceLine(r) {
     (isOrg && !r.imported ? `<button type="button" class="x" data-act="edit-race" data-id="${r.id}" title="Edit this race">✎</button>` : "") +
     (canDelete ? `<button type="button" class="x" data-act="del-race" data-id="${r.id}" title="Delete this race">×</button>` : "") + `</div></div>`;
 }
+// newest SENT-IN first: a race typed in today tops the list even when it was played long ago
+// (Challonge imports keep their played date, so they stay below everything sent in since)
+const sentAt = r => (!r.imported && Date.parse(r.created_at)) || r.at;
+const bySent = () => L.races.slice().sort((a, b) => sentAt(b) - sentAt(a));
 function renderRaces() {
   $("report-casual").hidden = !(me || isOrg);
-  const list = L.races.slice().reverse().slice(0, 15);
+  const list = bySent().slice(0, 15);
   $("race-feed").innerHTML = list.map(raceLine).join("") || `<div class="feed-row"><span class="none">No races yet.</span></div>`;
 }
 
@@ -596,6 +602,35 @@ function renderSeasons() {
 
 // ---------------------------------------------------------------- profile
 
+// ---------------------------------------------------------------- game key (races sent by the game)
+
+let gameKey = "";   // shown on your own profile once asked for
+function gameKeyHtml() {
+  return `<div class="gamekey"><h4>Game key</h4>
+    <p class="mini">Races you host in MM1 2026 go to the League by themselves: paste this into the speedrun overlay's Settings &gt; Race board &gt; League key. Keep it private, like a password.</p>
+    ${gameKey ? `<div class="row"><code id="gk-text">${esc(gameKey)}</code><button type="button" class="btn small" data-act="game-key-copy">Copy</button>
+      <button type="button" class="btn ghost small" data-act="game-key-new">Make a new key</button></div>
+      <p class="mini">A new key stops the old one working (do that if someone else saw it).</p>`
+    : `<button type="button" class="btn small" data-act="game-key">Show my game key</button>`}</div>`;
+}
+async function showGameKey(rotate) {
+  if (rotate && !confirm("Make a new game key? The old one stops working, so paste the new one into the race board settings.")) return;
+  try { gameKey = await store.gameKey(rotate); } catch (e) { setStatus("Couldn't get your game key (" + e.message + ").", true); return; }
+  renderProfile();
+}
+function copyGameKey() {
+  const done = () => setStatus("Game key copied.");
+  if (navigator.clipboard) navigator.clipboard.writeText(gameKey).then(done, () => selectKey());
+  else selectKey();
+}
+function selectKey() {
+  const el = $("gk-text");
+  if (!el) return;
+  const r = document.createRange(); r.selectNodeContents(el);
+  const sel = getSelection(); sel.removeAllRanges(); sel.addRange(r);
+  setStatus("Press Ctrl+C to copy the selected key.");
+}
+
 function renderProfile() {
   const s = $("profile");
   const p = openP && P(openP);
@@ -606,7 +641,8 @@ function renderProfile() {
   const rank = rated.indexOf(p) + 1;
   const peak = peakOf(p) || (p.races ? 0 : 1000);
   const xb = p.xpBy;
-  const src = p.src_name ? `<a href="index.html#player=${encodeURIComponent(p.src_name)}">Speedrun card</a>` : "";
+  const src = `<a href="driver.html#d=${encodeURIComponent(p.name)}">Driver page</a>` +
+    (p.src_name ? ` · <a href="index.html#player=${encodeURIComponent(p.src_name)}">Speedrun card</a>` : "");
   const canEdit = isOrg || (me && me.id === p.id);
   s.innerHTML = `<div class="sec-head"><h2>Driver</h2><button type="button" class="btn ghost small" data-act="close-p">Close</button></div>
   <div class="card">
@@ -625,6 +661,7 @@ function renderProfile() {
       <div class="stat"><b>${p.tournaments.filter(x => x.place === 1).length}</b><span>tournaments won</span></div>
       <div class="stat"><b>${p.bestStreak ? p.bestStreak.n : 0}</b><span>longest win streak${p.streak > 1 ? ` (on ${p.streak} now)` : ""}</span></div>
     </div>
+    ${me && me.id === p.id ? gameKeyHtml() : ""}
     ${ratingGraph(p)}
     ${rivalHtml(p)}
     ${h2hHtml(p)}
@@ -809,7 +846,7 @@ function renderOrganiser() {
         <button type="button" class="btn ghost small" data-act="claim-no" data-id="${c.player_id}">Reject</button></div></div>`).join("")}</div>`
         : `<p class="mini">Nobody is waiting. When someone signs in and claims an existing driver (like their Challonge name), it shows up here.</p>`}`;
   } else if (orgTab === "races") {
-    const list = L.races.slice().reverse().filter(r => !raceFilter || r.results.some(x => x.player_id === raceFilter));
+    const list = bySent().filter(r => !raceFilter || r.results.some(x => x.player_id === raceFilter));
     body = `<div class="row"><button type="button" class="btn" data-act="report">Enter a casual race</button>
       <label>Races with <select id="org-rfilter"><option value="">everyone</option>${drivers().sort((a, b) => a.name.localeCompare(b.name)).map(p => `<option value="${p.id}"${p.id === raceFilter ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label></div>
       <p class="mini">✎ opens a race already filled in. Challonge races can't be edited, since their brackets came from Challonge.</p>
@@ -1122,6 +1159,8 @@ document.addEventListener("click", e => {
     case "signin": store.signIn(); break;
     case "signout": act(() => store.signOut()); break;
     case "profile": openP = id; renderProfile(); history.replaceState(null, "", "#p=" + id); $("profile").scrollIntoView(); break;
+    case "game-key": case "game-key-new": showGameKey(a === "game-key-new"); break;
+    case "game-key-copy": copyGameKey(); break;
     case "close-p": openP = null; renderProfile(); history.replaceState(null, "", location.pathname); break;
     case "open-t":
       openT = openT === id ? null : id; renderTourList();

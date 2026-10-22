@@ -243,3 +243,8 @@ dialog form { display: grid; gap: 10px; }
 .trow > span:first-child { min-width: 0; display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
 .trow .acts { display: flex; flex-wrap: wrap; gap: 4px; }
 .trow.gone { opacity: .7; }
+
+/* your own profile: the key the race board uses to send races you host */
+.gamekey { margin: 14px 0; padding: 12px 14px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel2); }
+.gamekey h4 { margin: 0 0 4px; }
+.gamekey code { font-size: 14px; padding: 4px 8px; user-select: all; overflow-wrap: anywhere; }

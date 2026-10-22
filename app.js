@@ -239,7 +239,7 @@ function renderCard(name) {
   const rank = table.indexOf(s) + 1;
   const opts = table.map(x => `<option${x.name === name ? " selected" : ""}>${esc(x.name)}</option>`).join("");
   $("card").innerHTML =
-    `<div class="card-head">${av(name)}<div><h3>${esc(name)}${crewTag(name)}</h3><div class="meta">${rank ? `rank ${rank} of ${table.length}` : "no single-race runs"}</div></div>` +
+    `<div class="card-head">${av(name)}<div><h3>${esc(name)}${crewTag(name)}</h3><div class="meta">${rank ? `rank ${rank} of ${table.length}` : "no single-race runs"} · <a href="driver.html#d=${encodeURIComponent(name)}">Driver page</a></div></div>` +
     `<label for="pick" style="position:absolute;left:-9999px">Player</label><select id="pick">${opts}</select></div>` +
     `<div class="stats"><div class="stat"><b>${s.pts}</b><span>points</span></div><div class="stat"><b>${s.cups[1]}</b><span>world records</span></div>` +
     `<div class="stat"><b>${s.cups[1] + s.cups[2] + s.cups[3]}</b><span>podiums</span></div><div class="stat"><b>${s.runs.length}</b><span>boards</span></div></div>` +

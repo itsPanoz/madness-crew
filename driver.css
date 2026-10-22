@@ -1,0 +1,63 @@
+/* driver.html: one driver's League racing and speedruns. The colours and fonts are style.css's. */
+.dpage { margin-top: 14px; background: #0f1712; border: 1px solid var(--line); border-radius: 12px; overflow: hidden; }
+.dhero { display: grid; grid-template-columns: auto minmax(0, 1fr) auto; gap: 20px; align-items: center; padding: 24px 26px 18px; background: linear-gradient(180deg, #163021, #0f1712); }
+.dav { position: relative; width: 88px; height: 88px; border-radius: 50%; background: #1d3526; border: 3px solid var(--yellow); display: grid; place-items: center; overflow: hidden; }
+.dav span { font: 800 38px var(--display); color: var(--yellow); }
+.dav img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+.dname { min-width: 0; }
+.dname b { display: block; font: 800 clamp(30px, 5vw, 46px)/1 var(--display); text-transform: uppercase; letter-spacing: .02em; overflow-wrap: anywhere; }
+.dname b .crewbadge { height: .7em; vertical-align: middle; }
+.dname span { color: var(--dim); font-size: 14px; }
+.dcar { width: 230px; max-width: 100%; height: auto; }
+@media (max-width: 760px) { .dhero { grid-template-columns: auto minmax(0, 1fr); } .dcar { grid-column: 1 / -1; justify-self: center; } }
+.dnums { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); border-top: 1px solid var(--line); border-bottom: 1px solid var(--line); }
+.dnums div { padding: 14px 20px; min-width: 0; }
+.dnums div + div { border-left: 1px solid var(--line); }
+.dnums small { display: block; color: var(--dim); font: 600 12px var(--display); letter-spacing: .08em; text-transform: uppercase; }
+.dnums b { font: 700 34px/1.1 var(--display); }
+.dnums em { font-style: normal; color: var(--dim); font-size: 13px; margin-left: 6px; }
+@media (max-width: 760px) { .dnums { grid-template-columns: repeat(2, minmax(0, 1fr)); } .dnums div:nth-child(3) { border-left: 0; } .dnums div:nth-child(n+3) { border-top: 1px solid var(--line); } }
+.dtabs { display: flex; gap: 22px; padding: 0 26px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+.dtabs button { font: 600 16px var(--display); letter-spacing: .06em; text-transform: uppercase; padding: 12px 0 10px; color: var(--dim); background: none; border: 0; border-bottom: 3px solid transparent; cursor: pointer; }
+.dtabs button[aria-selected="true"] { color: var(--fg); border-color: var(--yellow); }
+.dtabs button:hover { color: var(--fg); }
+.dhalves { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.dhalves > div { padding: 20px 26px 26px; min-width: 0; }
+.dhalves > div + div { border-left: 1px solid var(--line); }
+@media (max-width: 760px) { .dhalves { grid-template-columns: 1fr; } .dhalves > div + div { border-left: 0; border-top: 1px solid var(--line); } }
+.dhalves h3 { margin: 0 0 12px; font: 700 18px var(--display); letter-spacing: .08em; text-transform: uppercase; display: flex; align-items: center; gap: 8px; }
+.dhalves h3 i { width: 9px; height: 9px; border-radius: 50%; display: inline-block; }
+.dhalves h3 i.g { background: var(--green); }
+.dhalves h3 i.y { background: var(--yellow); }
+.drow { display: flex; justify-content: space-between; gap: 12px; padding: 7px 0; border-bottom: 1px solid var(--line); }
+.drow:last-of-type { border-bottom: 0; }
+.drow span:first-child { color: var(--dim); }
+.drow span:last-child { text-align: right; font-variant-numeric: tabular-nums; }
+.dxp { margin-top: 14px; }
+.dxp small { color: var(--dim); font-size: 13px; }
+.dbar { height: 8px; background: var(--panel2); border-radius: 4px; overflow: hidden; margin-top: 4px; }
+.dbar i { display: block; height: 100%; background: var(--yellow); }
+.dcups { display: flex; gap: 18px; margin-top: 14px; }
+.dcups div { text-align: center; }
+.dcups img { width: 26px; height: 26px; display: block; margin: 0 auto 2px; }
+.dcups b { display: block; font: 700 24px/1 var(--display); }
+.dcups small { color: var(--dim); font-size: 12px; }
+.dpanel { padding: 16px 26px 22px; overflow-x: auto; }
+.dt { width: 100%; border-collapse: collapse; font-size: 14px; }
+.dt th { text-align: left; color: var(--dim); font: 600 12px var(--display); letter-spacing: .06em; text-transform: uppercase; padding: 6px 8px; border-bottom: 1px solid var(--line); }
+.dt td { padding: 6px 8px; border-bottom: 1px solid var(--line); vertical-align: middle; }
+.dt .r { text-align: right; }
+.dt tr.rival td { background: rgba(236, 214, 40, .08); }
+.dt .num { font-variant-numeric: tabular-nums; }
+.dim { color: var(--dim); }
+.dchip { display: inline-block; min-width: 26px; text-align: center; border-radius: 4px; font: 700 15px var(--display); padding: 1px 5px; background: var(--panel2); }
+.dchip.p1 { background: var(--yellow); color: #111; }
+.dchip.p2 { background: #c9d1d6; color: #111; }
+.dchip.p3 { background: #c98a4b; color: #111; }
+.dcar-s { width: 56px; height: auto; display: block; }
+.dfoot { padding: 0 26px 18px; color: var(--dim); font-size: 13px; }
+.dlist { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 8px; margin-top: 14px; }
+.dlist a { display: block; padding: 10px 12px; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; color: var(--fg); text-decoration: none; font: 600 18px var(--display); letter-spacing: .03em; }
+.dlist a:hover, .dlist a:focus-visible { border-color: var(--yellow); outline: none; }
+.dlist .crewbadge { height: 16px; vertical-align: -2px; }
+.none { color: var(--dim); }
