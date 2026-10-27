@@ -165,6 +165,35 @@
         .map(p => ({ player_id: p.id, user_id: p.claim_by, discord_name: p.claim_by === "u-guest" ? "NewDiscordUser" : p.claim_by, avatar_url: null }));
     },
     async gameKey(rotate) { return rotate ? "mcl_demo_new_key" : "mcl_demo_key"; },
+    // the same rules as submit_game_race (supabase/game-results-v3.sql): names (or other names) -> drivers,
+    // the same race within 2 minutes = one race, races wait for an organiser's Verify
+    async submitRace(race) {
+      const low = s => String(s || "").trim().toLowerCase();
+      const byName = n => data.players.find(p => !p.hidden && (low(p.name) === low(n) || (p.aliases || []).some(a => low(a) === low(n))));
+      if (!["Circuit", "Checkpoint", "Blitz", "Cops & Robbers"].includes(race.mode)) throw new Error("unknown race mode " + race.mode);
+      const rows = (race.results || []).slice().sort((a, b) => a.place - b.place);
+      if (rows.length < 2 || rows.length > 64) throw new Error("a race needs 2 to 64 drivers");
+      let at = Date.parse(race.played_at);
+      if (!at || at > Date.now() + 600e3) at = Date.now();
+      if (at < Date.now() - 60 * 864e5) throw new Error("this race is more than 60 days old");
+      const ids = [], missing = [];
+      for (const r of rows) { const p = byName(r.name); if (p && !ids.includes(p.id)) ids.push(p.id); else missing.push(r.name); }
+      if (ids.length < 2) throw new Error("fewer than 2 League drivers in this race (not on the League: " + missing.join(", ") + ")");
+      const same = data.races.find(x => x.source === "game" && x.mode === race.mode && (x.city || "") === (race.city || "") && (x.race_name || "") === (race.race_name || "") &&
+        Math.abs(Date.parse(x.played_at) - at) <= 120e3 &&
+        data.race_results.filter(rr => rr.race_id === x.id).map(rr => rr.player_id).sort().join() === ids.slice().sort().join());
+      if (same) return { race_id: same.id, matched: ids.length, duplicate: true, made: [], unmatched: [] };
+      const day = new Date(at).toISOString().slice(0, 10);
+      const season = data.seasons.slice().sort((a, b) => String(b.starts_on).localeCompare(String(a.starts_on))).find(s => s.starts_on <= day && (!s.ends_on || s.ends_on >= day));
+      const [made] = await this.insert("races", [{ city: race.city || null, mode: race.mode, race_name: race.race_name || null, played_at: new Date(at).toISOString(), source: "game",
+        note: (race.uploaded ? "Uploaded from a race file" : "Sent by the game") + (missing.length ? ". Not on the League: " + missing.join(", ") : ""),
+        season_id: season ? season.id : null, tournament_id: null }]);
+      await this.insert("race_results", ids.map((pid, i) => {
+        const r = rows.find(x => byName(x.name) && byName(x.name).id === pid);
+        return { race_id: made.id, player_id: pid, place: i + 1, dnf: !!r.dnf, time_ms: r.time_ms || null, car: r.car || null };
+      }));
+      return { race_id: made.id, matched: ids.length, duplicate: false, made: [], unmatched: missing };
+    },
     reset() { data = fresh(); save(); },
     onChange() { /* nothing live in demo */ },
   };

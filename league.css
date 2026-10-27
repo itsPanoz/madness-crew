@@ -276,3 +276,11 @@ dialog form { display: grid; gap: 10px; }
 .rtable tr.mine td { background: rgba(236, 214, 40, .08); }
 .rtable .dnf { color: #e2574c; font: 700 13px var(--display); }
 .rcar { width: 56px; height: auto; display: block; }
+
+/* Upload race files: the drop box and its list */
+.drop { display: block; margin: 10px 0; padding: 22px 14px; border: 2px dashed var(--line); border-radius: 10px; text-align: center; cursor: pointer; }
+.drop.over { border-color: var(--yellow); background: var(--crew); }
+.drop input { position: absolute; width: 1px; height: 1px; opacity: 0; }
+.drop span { font-size: .95rem; }
+.up-list .feed-row { padding: 6px 0; }
+.up-list .ok { color: var(--green); }

@@ -61,8 +61,15 @@ function supabaseStore() {
       const { error } = await q; if (error) throw new Error(error.message);
     },
     async pendingClaims() { const { data, error } = await sb.rpc("pending_claims"); if (error) throw new Error(error.message); return data || []; },
-    // the private key the race board uses to send races you host (supabase/game-results.sql)
+    // the private key Madness HUD sends your online races with (supabase/game-results.sql, -v3.sql)
     async gameKey(rotate) { const { data, error } = await sb.rpc("my_game_key", { rotate: !!rotate }); if (error) throw new Error(error.message); return data; },
+    // a race file from Madness HUD (Madness HUD results\*.json), sent with your own game key like the game does
+    async submitRace(race) {
+      const key = await this.gameKey(false);
+      const { data, error } = await sb.rpc("submit_game_race", { p_key: key, p_race: race });
+      if (error) throw new Error(error.message);
+      return data;
+    },
     signIn() { return sb.auth.signInWithOAuth({ provider: "discord", options: { redirectTo: location.origin + location.pathname } }); },
     async signOut() { await sb.auth.signOut(); this.user = null; },
     onChange(cb) { sb.channel("league").on("postgres_changes", { event: "*", schema: "public" }, cb).subscribe(); },
@@ -234,6 +241,7 @@ function renderMe() {
       <div class="lvbar" title="${lv.into} / ${lv.need} XP"><i style="width:${pct}%"></i></div>
       <div class="mini">${lv.need ? `${lv.into.toLocaleString()} / ${lv.need.toLocaleString()} XP to ${lv.master ? "the next Master level" : "level " + (lv.level + 1)}` : "Max level: prestige to start again with a new emblem."} · ${me.xp.toLocaleString()} XP in total</div>
     </div><div class="me-actions">${prestigeBtn}<button type="button" class="btn" data-act="report">Report a race</button>
+      <button type="button" class="btn ghost" data-act="upload">Upload race files</button>
       <button type="button" class="btn ghost" data-act="profile" data-id="${me.id}">My profile</button></div></div>
     <div><div class="mini" style="margin-bottom:6px">This week's challenges (from ${fmtDay(wk)}, same for everyone)</div><div class="chals">${ch}</div></div>
   </div>`;
@@ -684,7 +692,7 @@ function newDriversHtml() {
 let gameKey = "";   // shown on your own profile once asked for
 function gameKeyHtml() {
   return `<div class="gamekey"><h4>Game key</h4>
-    <p class="mini">Races you host in MM1 2026 go to the League by themselves: paste this into the speedrun overlay's Settings &gt; Race board &gt; League key. Keep it private, like a password.</p>
+    <p class="mini">Every online race you are in (MM1 2026 with Madness HUD) goes to the League by itself: paste this into Madness HUD's Settings &gt; Race board &gt; League key. Keep it private, like a password.</p>
     ${gameKey ? `<div class="row"><code id="gk-text">${esc(gameKey)}</code><button type="button" class="btn small" data-act="game-key-copy">Copy</button>
       <button type="button" class="btn ghost small" data-act="game-key-new">Make a new key</button></div>
       <p class="mini">A new key stops the old one working (do that if someone else saw it).</p>`
@@ -930,7 +938,7 @@ function renderOrganiser() {
         : `<p class="mini">Nobody is waiting. When someone signs in and claims an existing driver (like their Challonge name), it shows up here.</p>`}`;
   } else if (orgTab === "races") {
     const list = bySent().filter(r => !raceFilter || r.results.some(x => x.player_id === raceFilter));
-    body = `<div class="row"><button type="button" class="btn" data-act="report">Enter a casual race</button>
+    body = `<div class="row"><button type="button" class="btn" data-act="report">Enter a casual race</button><button type="button" class="btn ghost" data-act="upload">Upload race files</button>
       <label>Races with <select id="org-rfilter"><option value="">everyone</option>${drivers().sort((a, b) => a.name.localeCompare(b.name)).map(p => `<option value="${p.id}"${p.id === raceFilter ? " selected" : ""}>${esc(p.name)}</option>`).join("")}</select></label></div>
       <p class="mini">✎ opens a race already filled in. Challonge races can't be edited, since their brackets came from Challonge.</p>
       <div class="feed">${list.slice(0, racesShown).map(raceLine).join("") || `<div class="feed-row"><span class="none">No races.</span></div>`}</div>
@@ -1056,6 +1064,37 @@ form.addEventListener("submit", async e => {
   catch (err) { $("dlg-err").textContent = err.message; }
   finally { btn.disabled = false; }
 });
+
+// upload race files: the files Madness HUD saves in "Madness HUD results" (one race each). Each one is
+// sent the moment it's picked or dropped, and the list says what the League did with it.
+function uploadDialog() {
+  if (!me) { setStatus("Sign in and claim your driver first, then you can upload race files.", true); return; }
+  openDialog("Upload race files", `<p class="mini">Madness HUD saves every online race in your game folder, in <b>Madness HUD results</b>. Races it couldn't send are the files at the top of that folder (sent ones move into <b>sent</b>). Pick them or drop them here. They wait for an organiser's Verify like races from the game.</p>
+    <label class="drop" id="up-drop"><input type="file" id="up-files" accept=".json,application/json" multiple><span>Drop race files here, or <u>pick them</u></span></label>
+    <div class="feed up-list" id="up-list"></div>`, "Done", async () => {});
+  const list = $("up-list"), drop = $("up-drop");
+  const send = async files => {
+    for (const f of files) {
+      const row = document.createElement("div");
+      row.className = "feed-row";
+      row.innerHTML = `<div class="what"><b>${esc(f.name)}</b> <span class="mini">sending...</span></div>`;
+      list.prepend(row);
+      const say = (cls, text) => { row.querySelector(".mini").outerHTML = `<span class="mini ${cls}">${esc(text)}</span>`; };
+      try {
+        let race;
+        try { race = JSON.parse(await f.text()); } catch (e) { throw new Error("this isn't a Madness HUD race file"); }
+        if (!race || !Array.isArray(race.results) || !race.mode) throw new Error("this isn't a Madness HUD race file");
+        const got = await store.submitRace({ ...race, uploaded: true });
+        if (got.duplicate) say("", "Already on the League");
+        else say("ok", `Added (${got.matched} drivers${got.made && got.made.length ? ", new: " + got.made.join(", ") : ""})${got.unmatched && got.unmatched.length ? " - not on the League: " + got.unmatched.join(", ") : ""}`);
+      } catch (e) { say("warn", "Not added: " + e.message); }
+    }
+  };
+  $("up-files").addEventListener("change", e => { send([...e.target.files]); e.target.value = ""; });
+  drop.addEventListener("dragover", e => { e.preventDefault(); drop.classList.add("over"); });
+  drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+  drop.addEventListener("drop", e => { e.preventDefault(); drop.classList.remove("over"); send([...e.dataTransfer.files]); });
+}
 
 // report a race: drivers in finishing order (up / down buttons and a DNF box each), or by score for
 // Cops & Robbers and score tournaments (highest score first)
@@ -1323,6 +1362,7 @@ document.addEventListener("click", e => {
       if (isOrg) await logChange(`deleted the tournament ${t.name}`);
     }); break;
     case "report": reportDialog({ t: tid, key: b.dataset.key, round: b.dataset.round, heat: b.dataset.heat, players: b.dataset.players ? b.dataset.players.split(",") : null }); break;
+    case "upload": uploadDialog(); break;
     case "confirm": act(() => store.insert("race_confirms", [{ race_id: id, user_id: store.user.id }])); break;
     case "del-race": if (confirm("Delete this race?")) act(async () => {
       const r = L.races.find(x => x.id === id);

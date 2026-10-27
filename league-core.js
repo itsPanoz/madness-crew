@@ -469,8 +469,9 @@
     const races = data.races.map(r => {
       const results = (byRace.get(r.id) || []).slice().sort((a, b) => rankKey(a) - rankKey(b));
       const conf = confirms.get(r.id) || [];
-      // only an organiser's word counts: races they entered, races they verified, or the Challonge history
-      const counted = results.length >= 2 && (r.imported || organisers.has(r.entered_by) || conf.some(c => organisers.has(c.user_id)));
+      // only an organiser's word counts: races they entered, races they verified, or the Challonge history.
+      // Races from the game or a race file always wait for a Verify, even an organiser's own (Robin 2026-10-26)
+      const counted = results.length >= 2 && (r.imported || (r.source !== "game" && organisers.has(r.entered_by)) || conf.some(c => organisers.has(c.user_id)));
       return { ...r, results, confirms: conf, counted, at: when(r) };
     }).sort((a, b) => a.at - b.at || String(a.created_at).localeCompare(String(b.created_at)));
     const counted = races.filter(r => r.counted);
